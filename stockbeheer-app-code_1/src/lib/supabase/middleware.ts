@@ -39,7 +39,14 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isLoginPage) {
+  // Uitzondering: een ingelogde gebruiker zonder profielrij wordt door
+  // vereisProfiel() net naar /login?fout=geen-profiel gestuurd om die
+  // melding te tonen. Zonder deze uitzondering zou de regel hierboven die
+  // gebruiker meteen terugsturen naar "/", die vereisProfiel() opnieuw naar
+  // /login stuurt, enzovoort — een oneindige redirect-lus.
+  const heeftFoutmelding = request.nextUrl.searchParams.has("fout");
+
+  if (user && isLoginPage && !heeftFoutmelding) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
