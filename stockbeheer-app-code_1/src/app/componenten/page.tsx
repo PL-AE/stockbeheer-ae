@@ -2,9 +2,6 @@ import { vereisProfiel } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { Nav } from "@/components/Nav";
 import { ComponentenTabel } from "./ComponentenTabel";
-import { ComponentenImport } from "./ComponentenImport";
-
-const IMPORT_ROLLEN = ["verkoop", "planning", "directie"];
 
 export default async function ComponentenPage() {
   const profiel = await vereisProfiel();
@@ -25,7 +22,6 @@ export default async function ComponentenPage() {
           Actuele totale voorraad per component (som van alle voorraadbewegingen — nooit een
           handmatig cijfer).
         </p>
-        {IMPORT_ROLLEN.includes(profiel.rol) && <ComponentenImport />}
         <ComponentenTabel componenten={componenten ?? []} />
       </main>
     </div>
