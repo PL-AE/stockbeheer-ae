@@ -33,6 +33,10 @@ export async function vereisProfiel(): Promise<Profiel> {
   if (error || !profiel) {
     // Ingelogd bij Supabase Auth, maar nog geen rij in profiles: kan gebeuren
     // net na het aanmaken van een gebruiker (zie setup-instructies).
+    // Tijdelijk: log de echte reden in de servers logs (Vercel → Logs), zodat
+    // een permissie- of RLS-fout niet verborgen blijft achter deze algemene
+    // melding.
+    console.error("vereisProfiel: profiel niet gevonden voor user", user.id, error);
     redirect("/login?fout=geen-profiel");
   }
 
