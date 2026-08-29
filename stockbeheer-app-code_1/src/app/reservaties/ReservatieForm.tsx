@@ -98,11 +98,15 @@ export function ReservatieForm({
     setRegels((prev) => prev.map((r) => (r.tempId === tempId ? { ...r, aantal } : r)));
   }
 
-  // CSV-import van componentregels: verwacht minstens een kolom "code" en
-  // optioneel een kolom "aantal" (default 1). Een code die al in de
-  // regellijst staat wordt bijgewerkt met het aantal uit het bestand; een
-  // nieuwe, gekende code wordt toegevoegd. Onbekende codes worden gemeld,
-  // niet stilzwijgend genegeerd.
+  // CSV-import van componentregels. Twee vormen worden ondersteund:
+  //  1) met kopregel: kolomnamen "code" (verplicht) en "aantal" (optioneel,
+  //     default 1) — in om het even welke volgorde/positie;
+  //  2) zonder kopregel (bv. een export als "17;50" per lijn): dan wordt
+  //     kolom 1 als code en kolom 2 als aantal gebruikt, vanaf de eerste
+  //     lijn. Een code die al in de regellijst staat wordt bijgewerkt met
+  //     het aantal uit het bestand; een nieuwe, gekende code wordt
+  //     toegevoegd. Onbekende codes worden gemeld, niet stilzwijgend
+  //     genegeerd.
   function verwerkCsvBestand(bestand: File) {
     setCsvBezig(true);
     setCsvResultaat(null);
@@ -110,7 +114,10 @@ export function ReservatieForm({
     const lezer = new FileReader();
     lezer.onload = () => {
       setCsvBezig(false);
-      const tekst = String(lezer.result ?? "").trim();
+      // ﻿: een eventuele byte-order-mark van een Excel-export verwijderen.
+      const tekst = String(lezer.result ?? "")
+        .replace(/^﻿/, "")
+        .trim();
       if (!tekst) {
         setCsvResultaat({ toegevoegd: 0, bijgewerkt: 0, nietGevonden: [] });
         return;
@@ -120,21 +127,31 @@ export function ReservatieForm({
       const delimiter = detecteerDelimiter(eersteLijn);
       const rijen = parseCsv(tekst, delimiter);
 
-      if (rijen.length < 2) {
-        setAlgemeneFout("Geen datarijen gevonden onder de kopregel van het CSV-bestand.");
+      if (rijen.length < 1) {
+        setAlgemeneFout("Geen data gevonden in het CSV-bestand.");
         return;
       }
 
-      const kop = rijen[0].map((h) => h.trim().toLowerCase());
-      const codeIdx = kop.findIndex((h) =>
+      const kopKandidaat = rijen[0].map((h) => h.trim().toLowerCase());
+      const kopCodeIdx = kopKandidaat.findIndex((h) =>
         ["code", "componentcode", "artikel", "artikelcode"].includes(h)
       );
-      const aantalIdx = kop.findIndex((h) =>
-        ["aantal", "stuks", "qty", "quantity", "voorraad"].includes(h)
-      );
+      const heeftKoprij = kopCodeIdx !== -1;
 
-      if (codeIdx === -1) {
-        setAlgemeneFout("Het CSV-bestand mist een kolom 'code'.");
+      let codeIdx = 0;
+      let aantalIdx = rijen[0].length > 1 ? 1 : -1;
+      let startRij = 0;
+
+      if (heeftKoprij) {
+        codeIdx = kopCodeIdx;
+        aantalIdx = kopKandidaat.findIndex((h) =>
+          ["aantal", "stuks", "qty", "quantity", "voorraad"].includes(h)
+        );
+        startRij = 1;
+      }
+
+      if (rijen.length <= startRij) {
+        setAlgemeneFout("Geen datarijen gevonden onder de kopregel van het CSV-bestand.");
         return;
       }
 
@@ -143,7 +160,7 @@ export function ReservatieForm({
       const nietGevonden: string[] = [];
       const kopie = [...regels];
 
-      for (let r = 1; r < rijen.length; r++) {
+      for (let r = startRij; r < rijen.length; r++) {
         const cellen = rijen[r];
         if (cellen.every((c) => c.trim() === "")) continue;
         const code = (cellen[codeIdx] ?? "").trim();
@@ -364,8 +381,9 @@ export function ReservatieForm({
         </div>
         <p className="mb-4 text-xs text-slate-400">
           CSV met kolommen <span className="font-mono">code</span> (verplicht) en{" "}
-          <span className="font-mono">aantal</span> (optioneel, standaard 1) — een code die al in
-          de lijst staat wordt bijgewerkt met het aantal uit het bestand.
+          <span className="font-mono">aantal</span> (optioneel, standaard 1) — of, zonder
+          kopregel, gewoon <span className="font-mono">code;aantal</span> per lijn. Een code die
+          al in de lijst staat wordt bijgewerkt met het aantal uit het bestand.
         </p>
 
         {csvResultaat && (
