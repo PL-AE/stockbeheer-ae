@@ -92,3 +92,69 @@ export async function maakReservatie(input: {
   revalidatePath("/reservaties");
   redirect(`/reservaties/${reservatie.id}`);
 }
+
+export async function wijzigReservatie(
+  reservationId: number,
+  input: {
+    evenement_naam: string;
+    klant: string;
+    locatie: string;
+    laad_datum: string;
+    retour_datum: string;
+    status: string;
+    regels: NieuweRegel[];
+  }
+) {
+  const supabase = await createClient();
+
+  const { error: resError } = await supabase
+    .from("reservations")
+    .update({
+      evenement_naam: input.evenement_naam,
+      klant: input.klant || null,
+      locatie: input.locatie || null,
+      laad_datum: input.laad_datum,
+      retour_datum: input.retour_datum,
+      status: input.status,
+    })
+    .eq("id", reservationId);
+
+  if (resError) {
+    return { fout: resError.message };
+  }
+
+  // Eenvoudigste betrouwbare aanpak voor de regels: bestaande regels
+  // vervangen door de nieuwe set (geen losse diff/patch per regel).
+  const { error: verwijderError } = await supabase
+    .from("reservation_lines")
+    .delete()
+    .eq("reservation_id", reservationId);
+
+  if (verwijderError) {
+    return {
+      fout: `Reservatie is bijgewerkt, maar de bestaande componentregels konden niet verwijderd worden: ${verwijderError.message}.`,
+    };
+  }
+
+  if (input.regels.length > 0) {
+    const { error: lijnenError } = await supabase.from("reservation_lines").insert(
+      input.regels.map((r) => ({
+        reservation_id: reservationId,
+        component_id: r.component_id,
+        aantal: r.aantal,
+        laad_datum: r.laad_datum || null,
+        retour_datum: r.retour_datum || null,
+      }))
+    );
+
+    if (lijnenError) {
+      return {
+        fout: `Reservatie is bijgewerkt, maar de nieuwe componentregels konden niet bewaard worden: ${lijnenError.message}.`,
+      };
+    }
+  }
+
+  revalidatePath("/reservaties");
+  revalidatePath(`/reservaties/${reservationId}`);
+  redirect(`/reservaties/${reservationId}`);
+}
