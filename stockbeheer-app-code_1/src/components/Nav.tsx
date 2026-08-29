@@ -24,6 +24,9 @@ export function Nav({ profiel }: { profiel: Profiel }) {
             <Link href="/componenten" className="hover:text-slate-900">
               Componenten
             </Link>
+            <Link href="/componenten/kalender" className="hover:text-slate-900">
+              Kalender
+            </Link>
             <Link href="/reservaties" className="hover:text-slate-900">
               Reservaties
             </Link>
