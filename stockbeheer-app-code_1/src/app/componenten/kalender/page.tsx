@@ -131,13 +131,21 @@ export default async function VoorraadKalenderPage({
       : 0;
   const periodeBeperkt = totaalDagenRuw > MAX_DAGEN;
 
+  // Belangrijk: we vragen de beschikbaarheid enkel op tot en met de laatste
+  // dag die ook effectief als kolom getoond wordt (dagen[laatste]), niet tot
+  // de ruwe "tot" uit de zoekopdracht. Zo kan de tekortenanalyse nooit een
+  // tekort melden op een datum die buiten de zichtbare kalender valt (dat
+  // gaf eerder een tekort in tekst zonder dat de bijhorende dag ooit rood
+  // kleurde in het rooster) — tekst en kleuren blijven altijd in sync.
+  const effectieveTot = dagen.length > 0 ? dagen[dagen.length - 1] : tot;
+
   const alleResultaten: Resultaat[] = await Promise.all(
     teTonen.map(async (c) => {
       if (dagen.length === 0) return { component: c, dagen: [] as DagBeschikbaarheid[], fout: undefined as string | undefined };
       const { data, error } = await supabase.rpc("fn_beschikbaarheid", {
         p_component_id: c.id,
         p_van: van,
-        p_tot: tot,
+        p_tot: effectieveTot,
       });
       return { component: c, dagen: (data as DagBeschikbaarheid[]) ?? [], fout: error?.message };
     })
